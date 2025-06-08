@@ -103,7 +103,7 @@ const ChatInterface: React.FC = () => {
           <header className="border-b bg-card p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <SidebarTrigger asChild>
+                <SidebarTrigger>
                   <Button variant="outline" size="sm">
                     <Menu className="w-4 h-4" />
                   </Button>

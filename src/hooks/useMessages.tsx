@@ -35,8 +35,10 @@ export const useMessages = (userId: string | undefined) => {
         return;
       }
 
-      const formattedMessages = data.map(msg => ({
-        ...msg,
+      const formattedMessages: Message[] = data.map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
         created_at: new Date(msg.created_at)
       }));
 
@@ -70,8 +72,10 @@ export const useMessages = (userId: string | undefined) => {
         throw error;
       }
 
-      const newMessage = {
-        ...data,
+      const newMessage: Message = {
+        id: data.id,
+        role: data.role as 'user' | 'assistant',
+        content: data.content,
         created_at: new Date(data.created_at)
       };
 
