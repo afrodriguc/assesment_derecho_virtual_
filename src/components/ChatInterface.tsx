@@ -5,17 +5,12 @@ import { Button } from '@/components/ui/button';
 import { SidebarProvider, SidebarTrigger, Sidebar, SidebarContent } from '@/components/ui/sidebar';
 import { Scale, LogOut, Settings, Menu } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useMessages } from '@/hooks/useMessages';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ApiKeyInput from './ApiKeyInput';
 import ConversationHistory from './ConversationHistory';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: Date;
-}
 
 interface Conversation {
   id: string;
@@ -25,19 +20,12 @@ interface Conversation {
   messageCount: number;
 }
 
-interface ChatInterfaceProps {
-  onLogout: () => void;
-}
-
-const SYSTEM_PROMPT = "Eres LexIA, asistente jurídico especializado en Derecho español y europeo. Responde con lenguaje claro y, cuando proceda, menciona la norma o jurisprudencia aplicable.";
-
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+const ChatInterface: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const { messages, isLoading, sendMessage } = useMessages(user?.id);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [provider, setProvider] = useState<'openai' | 'gemini'>('openai');
+  const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -50,143 +38,47 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
   }, [messages]);
 
   useEffect(() => {
-    // TODO: Cargar conversaciones desde Supabase
-    // loadConversationsFromSupabase();
-    console.log('ChatInterface mounted - ready for Supabase integration');
+    const savedKey = localStorage.getItem('user_api_key');
+    setApiKeyConfigured(!!savedKey);
   }, []);
 
-  const handleApiKeySet = (key: string, selectedProvider: 'openai' | 'gemini') => {
-    setApiKey(key);
-    setProvider(selectedProvider);
+  const handleApiKeySet = () => {
+    setApiKeyConfigured(true);
     toast({
       title: "API Key configurada",
-      description: `Usando ${selectedProvider === 'openai' ? 'OpenAI' : 'Google Gemini'}`,
+      description: "OpenAI GPT-4o listo para usar",
     });
   };
 
-  const callLLMAPI = async (userMessage: string): Promise<string> => {
-    if (!apiKey) {
-      throw new Error('API Key no configurada');
-    }
-
-    // Preparar mensajes para la API
-    const apiMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...messages.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: userMessage }
-    ];
-
-    if (provider === 'openai') {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4',
-          messages: apiMessages,
-          temperature: 0.4,
-          max_tokens: 8000,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error de OpenAI: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.choices[0].message.content;
-    } else {
-      // Gemini API call
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `${SYSTEM_PROMPT}\n\n${userMessage}` }]
-          }],
-          generationConfig: {
-            temperature: 0.4,
-            maxOutputTokens: 8000,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error de Gemini: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.candidates[0].content.parts[0].text;
-    }
+  const handleSendMessage = async (content: string) => {
+    await sendMessage(content);
   };
 
-  const handleSendMessage = async (content: string) => {
-    if (!apiKey) {
-      toast({
-        title: "Error",
-        description: "Por favor, configura tu API Key primero",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content,
-      created_at: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-
+  const handleLogout = async () => {
     try {
-      // TODO: Guardar mensaje de usuario en Supabase
-      // await saveMessageToSupabase(userMessage);
-      
-      const response = await callLLMAPI(content);
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response,
-        created_at: new Date(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // TODO: Guardar respuesta del asistente en Supabase
-      // await saveMessageToSupabase(assistantMessage);
-      
+      await signOut();
     } catch (error) {
-      console.error('Error calling LLM API:', error);
       toast({
         title: "Error",
-        description: "No se pudo obtener respuesta del asistente. Verifica tu API Key.",
+        description: "Error al cerrar sesión",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleNewConversation = () => {
-    setMessages([]);
     setCurrentConversationId(null);
+    // TODO: Implementar nueva conversación cuando se tenga el sistema de conversaciones
   };
 
   const handleSelectConversation = (id: string) => {
-    // TODO: Cargar mensajes de la conversación desde Supabase
+    // TODO: Cargar mensajes de la conversación específica
     console.log('Loading conversation:', id);
     setCurrentConversationId(id);
   };
 
   const handleDeleteConversation = (id: string) => {
-    // TODO: Eliminar conversación de Supabase
+    // TODO: Eliminar conversación
     console.log('Deleting conversation:', id);
     setConversations(prev => prev.filter(conv => conv.id !== id));
   };
@@ -232,7 +124,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
                   <Settings className="w-4 h-4 mr-2" />
                   Configuración
                 </Button>
-                <Button variant="outline" size="sm" onClick={onLogout}>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Cerrar Sesión
                 </Button>
@@ -294,7 +186,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ onLogout }) => {
             </div>
 
             {/* Chat Input */}
-            <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+            <ChatInput 
+              onSendMessage={handleSendMessage} 
+              isLoading={isLoading} 
+              disabled={!apiKeyConfigured}
+            />
           </div>
         </div>
       </div>

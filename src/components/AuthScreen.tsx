@@ -6,47 +6,79 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scale, Shield } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
-interface AuthScreenProps {
-  onAuthenticated: () => void;
-}
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
+const AuthScreen: React.FC = () => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ email: '', password: '', confirmPassword: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // TODO: Implementar conexión con Supabase Auth
-    console.log('Login attempt:', loginData);
-    
-    // Simulación temporal
-    setTimeout(() => {
+    try {
+      const { error } = await signIn(loginData.email, loginData.password);
+      
+      if (error) {
+        toast({
+          title: "Error de inicio de sesión",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error inesperado al iniciar sesión",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      onAuthenticated();
-    }, 1500);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (registerData.password !== registerData.confirmPassword) {
-      alert('Las contraseñas no coinciden');
+      toast({
+        title: "Error",
+        description: "Las contraseñas no coinciden",
+        variant: "destructive",
+      });
       return;
     }
     
     setIsLoading(true);
     
-    // TODO: Implementar conexión con Supabase Auth
-    console.log('Register attempt:', registerData);
-    
-    // Simulación temporal
-    setTimeout(() => {
+    try {
+      const { error } = await signUp(registerData.email, registerData.password);
+      
+      if (error) {
+        toast({
+          title: "Error de registro",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Registro exitoso",
+          description: "Revisa tu email para confirmar tu cuenta",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Error inesperado al registrarse",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-      onAuthenticated();
-    }, 1500);
+    }
   };
 
   return (

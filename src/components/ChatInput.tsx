@@ -7,14 +7,15 @@ import { Send, Loader2 } from 'lucide-react';
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading, disabled = false }) => {
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && !isLoading) {
+    if (message.trim() && !isLoading && !disabled) {
       onSendMessage(message.trim());
       setMessage('');
     }
@@ -35,15 +36,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSendMessage, isLoading }) => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Escribe tu consulta jurídica aquí... (Shift + Enter para nueva línea)"
+            placeholder={disabled ? "Configura tu API Key de OpenAI para comenzar..." : "Escribe tu consulta jurídica aquí... (Shift + Enter para nueva línea)"}
             className="min-h-[60px] max-h-[120px] resize-none"
-            disabled={isLoading}
+            disabled={isLoading || disabled}
           />
         </div>
         <Button 
           type="submit" 
           size="lg"
-          disabled={!message.trim() || isLoading}
+          disabled={!message.trim() || isLoading || disabled}
           className="h-[60px] px-6"
         >
           {isLoading ? (
