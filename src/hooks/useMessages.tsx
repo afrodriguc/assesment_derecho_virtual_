@@ -53,83 +53,6 @@ export const useMessages = (userId: string | undefined) => {
     }
   };
 
-  const saveMessage = async (role: 'user' | 'assistant', content: string) => {
-    if (!userId) return null;
-
-    try {
-      const { data, error } = await supabase
-        .from('messages')
-        .insert({
-          user_id: userId,
-          role,
-          content,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error saving message:', error);
-        throw error;
-      }
-
-      const newMessage: Message = {
-        id: data.id,
-        role: data.role as 'user' | 'assistant',
-        content: data.content,
-        created_at: new Date(data.created_at)
-      };
-
-      setMessages(prev => [...prev, newMessage]);
-      return newMessage;
-    } catch (error) {
-      console.error('Error saving message:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo guardar el mensaje",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
-  const callOpenAI = async (userMessage: string) => {
-    const apiKey = localStorage.getItem('user_api_key');
-    if (!apiKey) {
-      throw new Error('API Key no configurada');
-    }
-
-    // Preparar mensajes para OpenAI incluyendo el historial
-    const openAIMessages = [
-      {
-        role: 'system',
-        content: 'Eres LexIA, asistente jurídico especializado en Derecho español y europeo. Responde con lenguaje claro y, cuando proceda, menciona la norma o jurisprudencia aplicable.'
-      },
-      ...messages.map(m => ({ role: m.role, content: m.content })),
-      { role: 'user', content: userMessage }
-    ];
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: openAIMessages,
-        temperature: 0.4,
-        max_tokens: 8000,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error de OpenAI: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-  };
-
   const sendMessage = async (content: string) => {
     if (!userId) {
       toast({
@@ -153,20 +76,113 @@ export const useMessages = (userId: string | undefined) => {
     setIsLoading(true);
 
     try {
-      // Guardar mensaje del usuario
-      await saveMessage('user', content);
+      // 1️⃣ Insertar mensaje del usuario en Supabase
+      const { data: userMessage, error: userError } = await supabase
+        .from('messages')
+        .insert({
+          user_id: userId,
+          role: 'user',
+          content: content
+        })
+        .select()
+        .single();
 
-      // Llamar a OpenAI
-      const response = await callOpenAI(content);
+      if (userError) {
+        console.error('Error saving user message:', userError);
+        throw new Error('No se pudo guardar el mensaje del usuario');
+      }
 
-      // Guardar respuesta del asistente
-      await saveMessage('assistant', response);
+      // Agregar mensaje del usuario al estado inmediatamente
+      const newUserMessage: Message = {
+        id: userMessage.id,
+        role: 'user',
+        content: userMessage.content,
+        created_at: new Date(userMessage.created_at)
+      };
+      setMessages(prev => [...prev, newUserMessage]);
+
+      // 2️⃣ Recuperar historial completo desde Supabase
+      const { data: allMessages, error: historyError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+
+      if (historyError) {
+        console.error('Error loading message history:', historyError);
+        throw new Error('No se pudo recuperar el historial');
+      }
+
+      // 3️⃣ Construir array de mensajes para OpenAI
+      const openAIMessages = [
+        {
+          role: 'system',
+          content: 'Eres LexIA, asistente jurídico especializado en Derecho español y europeo. Responde con lenguaje claro y, cuando proceda, menciona la norma o jurisprudencia aplicable.'
+        },
+        ...allMessages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      ];
+
+      // 4️⃣ Llamada a la API de OpenAI
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: openAIMessages,
+          temperature: 0.4,
+          max_tokens: 8000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('OpenAI API Error:', response.status, errorData);
+        throw new Error(`Error de OpenAI: ${response.status}. Verifica tu API Key.`);
+      }
+
+      const data = await response.json();
+      const assistantResponse = data.choices?.[0]?.message?.content;
+
+      if (!assistantResponse) {
+        throw new Error('No se recibió respuesta válida de OpenAI');
+      }
+
+      // 5️⃣ Insertar respuesta del asistente en Supabase
+      const { data: assistantMessage, error: assistantError } = await supabase
+        .from('messages')
+        .insert({
+          user_id: userId,
+          role: 'assistant',
+          content: assistantResponse
+        })
+        .select()
+        .single();
+
+      if (assistantError) {
+        console.error('Error saving assistant message:', assistantError);
+        throw new Error('No se pudo guardar la respuesta del asistente');
+      }
+
+      // 6️⃣ Actualizar estado del chat con la respuesta del asistente
+      const newAssistantMessage: Message = {
+        id: assistantMessage.id,
+        role: 'assistant',
+        content: assistantMessage.content,
+        created_at: new Date(assistantMessage.created_at)
+      };
+      setMessages(prev => [...prev, newAssistantMessage]);
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in sendMessage:', error);
       toast({
         title: "Error",
-        description: "No se pudo obtener respuesta del asistente. Verifica tu API Key.",
+        description: error instanceof Error ? error.message : "No se pudo obtener respuesta del asistente",
         variant: "destructive",
       });
     } finally {
