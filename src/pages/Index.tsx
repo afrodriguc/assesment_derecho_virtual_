@@ -1,14 +1,26 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import React, { useState } from 'react';
+import AuthScreen from '@/components/AuthScreen';
+import ChatInterface from '@/components/ChatInterface';
 
 const Index = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    // TODO: Limpiar sesión de Supabase
+    console.log('Logout - clearing Supabase session');
+  };
+
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthenticated={handleAuthenticated} />;
+  }
+
+  return <ChatInterface onLogout={handleLogout} />;
 };
 
 export default Index;
