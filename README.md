@@ -1,73 +1,86 @@
-# Welcome to your Lovable project
+# LexIA — Asistente Jurídico Especializado
 
-## Project info
+**Autor:** Andrés Rodríguez
 
-**URL**: https://lovable.dev/projects/102790d1-b2c3-4e4c-9461-1d1a42a673a7
+---
 
-## How can I edit this code?
+## Descripción del proyecto
 
-There are several ways of editing your application.
+LexIA es un asistente jurídico especializado en **Derecho Español y Europeo**, desarrollado como parte de la prueba técnica.  
+Permite automatizar la atención al alumno mediante un chatbot jurídico que responde consultas legales en tiempo real, usando **OpenAI GPT-4o**.
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/102790d1-b2c3-4e4c-9461-1d1a42a673a7) and start prompting.
+## Funcionalidades implementadas
 
-Changes made via Lovable will be committed automatically to this repo.
+✅ **Autenticación completa** (registro / login) mediante Supabase.
 
-**Use your preferred IDE**
+✅ **Interfaz de chat completa**:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- Input para consulta.
+- Visualización de mensajes.
+- Sidebar con historial de conversaciones.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+✅ **Gestión de la API Key**:
 
-Follow these steps:
+- Campo tipo password para pegar la API Key.
+- Almacenamiento en `localStorage`, no en base de datos.
+- Uso en cada request en la cabecera `Authorization`.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+✅ **Llamadas al LLM**:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- Endpoint: [https://api.openai.com/v1/chat/completions](https://api.openai.com/v1/chat/completions)
+- Modelo: `gpt-4o`
+- Parámetros: `temperature: 0.4`, `max_tokens: 8000`
+- Prompt del sistema: _"Eres LexIA, asistente jurídico especializado en Derecho español y europeo. Responde con lenguaje claro y, cuando proceda, menciona la norma o jurisprudencia aplicable."_
 
-# Step 3: Install the necessary dependencies.
-npm i
+✅ **Base de datos Supabase**:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- Tabla `messages` con:
+  - `id`, `user_id`, `role`, `content`, `created_at`
+- RLS configuradas.
+- Historial completo por usuario.
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## URL pública del proyecto
 
-**Use GitHub Codespaces**
+👉 [https://preview--span-law-assistant.lovable.app/](https://preview--span-law-assistant.lovable.app/)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+---
 
-## What technologies are used for this project?
+## Instrucciones para desplegar localmente
 
-This project is built with:
+1. Clonar el proyecto desde Lovable (opción Export Project → ZIP o GitHub).
+2. Configurar un proyecto en Supabase:
+   - Crear tabla `messages` (estructura proporcionada en el repo).
+   - Habilitar Auth (email / password).
+3. Obtener API Key en [platform.openai.com](https://platform.openai.com).
+4. Ejecutar el proyecto en Lovable o como app web.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## Instrucciones para cambiar entre GPT y Gemini (extensible)
 
-Simply open [Lovable](https://lovable.dev/projects/102790d1-b2c3-4e4c-9461-1d1a42a673a7) and click on Share -> Publish.
+Actualmente la app está implementada con **OpenAI GPT-4o**.
 
-## Can I connect a custom domain to my Lovable project?
+Para extenderla a **Gemini**:
 
-Yes, you can!
+- Añadir en la UI un selector de modelo.
+- Implementar un nuevo endpoint en `onSendMessage` para **Generative AI Gemini** (requiere configurar una cuenta de [Google AI Studio](https://makersuite.google.com/app)).
+- Cambiar la llamada `fetch` según el modelo seleccionado.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Mejoras pendientes
+
+- Implementar un sistema de **limpieza de historial** (botón "Limpiar historial").
+- Añadir un **feedback del usuario** (útil / no útil) para cada respuesta del asistente.
+- Optimizar el control de **ventana de contexto** (limitar el tamaño del historial que se envía al LLM).
+- Añadir **paginación** o scroll infinito en el sidebar de conversaciones.
+- Implementar soporte para múltiples idiomas en la interfaz (internacionalización, i18n).
+- Mejorar la gestión de errores en la UI (por ejemplo, cuando la API Key no es válida o la API falla).
+- Añadir la posibilidad de **editar el prompt del sistema** desde la configuración avanzada.
+
+---
+
